@@ -1,0 +1,17 @@
+# Credenciales (nunca al repositorio)
+.env
+.env.*
+!.env.production.example
+
+# Dependencias
+node_modules/
+
+# Datos locales del modo heredado (contienen correos)
+data/
+
+# Logs / sistema / editores
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

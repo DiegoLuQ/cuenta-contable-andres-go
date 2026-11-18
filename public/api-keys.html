@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Keys · Cuentas Contables</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="rol-superadmin">
+  <div class="app-layout">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+        </div>
+        <div>
+          <h1 class="brand-title">API Keys</h1>
+          <p class="brand-subtitle">Acceso de solo lectura para otras aplicaciones</p>
+        </div>
+      </div>
+      <div class="user-box">
+        <a class="btn btn-secondary btn-sm" href="/">← Panel de consulta</a>
+        <div class="user-info">
+          <span class="user-name" id="user-name">—</span>
+          <span class="user-role superadmin">superadmin</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="logout()">Salir</button>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <!-- Aviso de URL pública -->
+      <div class="ak-alerta" id="ak-alerta" hidden></div>
+
+      <!-- KPIs -->
+      <section class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-icon icon-emerald"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+          <div class="kpi-info"><span class="kpi-label">Claves activas</span><span class="kpi-value" id="kpi-activas">0</span><span class="kpi-sub">Con acceso a la API</span></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon icon-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg></div>
+          <div class="kpi-info"><span class="kpi-label">Desactivadas</span><span class="kpi-value" id="kpi-inactivas">0</span><span class="kpi-sub">Sin acceso</span></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon icon-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></div>
+          <div class="kpi-info"><span class="kpi-label">Consultas totales</span><span class="kpi-value" id="kpi-usos">0</span><span class="kpi-sub">Todas las claves</span></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon icon-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div>
+          <div class="kpi-info"><span class="kpi-label">Último uso</span><span class="kpi-value kpi-value-sm" id="kpi-ultimo">—</span><span class="kpi-sub" id="kpi-ultimo-sub">&nbsp;</span></div>
+        </div>
+      </section>
+
+      <!-- Crear -->
+      <section class="card">
+        <div class="card-header">
+          <div class="section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <h2>Nueva API Key</h2>
+          </div>
+        </div>
+        <div class="ak-body">
+          <form class="ak-crear" id="form-apikey" onsubmit="crearApiKey(event)">
+            <div class="form-group">
+              <label for="ak-nombre">Aplicación o uso</label>
+              <input type="text" id="ak-nombre" required minlength="3" maxlength="120" placeholder="ej: Portal Dirección - reportes" autocomplete="off">
+            </div>
+            <button type="submit" class="btn btn-primary" id="btn-crear">Generar API Key</button>
+          </form>
+          <p class="form-hint">Solo lectura · sin vencimiento · se puede desactivar en cualquier momento.</p>
+
+          <!-- Entrega (una sola vez) -->
+          <div class="apikey-entrega" id="entrega" hidden>
+            <p class="apikey-aviso">⚠️ Copia o descarga ahora. <strong>La clave no se vuelve a mostrar.</strong></p>
+            <div class="ak-clave">
+              <code id="entrega-clave"></code>
+              <button class="btn btn-secondary btn-sm" onclick="copiar(state.entrega.api_key, 'Clave copiada')">Copiar clave</button>
+            </div>
+            <div class="json-viewer-container"><pre><code id="entrega-json"></code></pre></div>
+            <div class="apikey-acciones">
+              <button class="btn btn-primary btn-sm" onclick="descargarJson(state.entrega, 'api_key')">Descargar .json</button>
+              <button class="btn btn-secondary btn-sm" onclick="copiar(JSON.stringify(state.entrega, null, 2), 'JSON copiado')">Copiar JSON</button>
+              <button class="btn btn-ghost btn-sm" onclick="cerrarEntrega()">Listo, ya la guardé</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Listado -->
+      <section class="card table-card">
+        <div class="table-toolbar">
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="buscar" placeholder="Buscar por aplicación, clave o creador..." oninput="renderTabla()">
+          </div>
+          <div class="toolbar-actions">
+            <select id="filtro-estado" class="select-inline" onchange="renderTabla()">
+              <option value="todas">Todas</option>
+              <option value="activas" selected>Activas</option>
+              <option value="inactivas">Desactivadas</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Aplicación</th>
+                <th>Clave</th>
+                <th>Estado</th>
+                <th>Creada</th>
+                <th>Último uso</th>
+                <th class="text-right">Consultas</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-body"><tr><td colspan="7" class="empty-state">Cargando...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Documentación -->
+      <section class="card">
+        <div class="card-header">
+          <div class="section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+            <h2>Cómo usar la API</h2>
+          </div>
+        </div>
+        <div class="ak-body">
+          <div class="ak-base">
+            <span class="auto-label">URL base</span>
+            <code id="doc-base">—</code>
+            <button class="btn btn-ghost btn-sm" onclick="copiar(state.config.apiUrl, 'URL copiada')">Copiar</button>
+          </div>
+          <p class="form-hint">Enviar la clave en el header <code>X-API-Key</code> (o <code>Authorization: Bearer &lt;clave&gt;</code>). Filtros: <code>colegio</code> = AMBAS | FUNDACIONMACAYA | FUNDACIONPTONUEV · <code>ano</code> · <code>mes</code> (1-12) · <code>cuentas</code> (códigos separados por coma).</p>
+
+          <div class="table-container ak-endpoints">
+            <table class="data-table">
+              <thead><tr><th>GET</th><th>Devuelve</th><th></th></tr></thead>
+              <tbody id="doc-endpoints"></tbody>
+            </table>
+          </div>
+
+          <div class="ak-tabs" role="tablist">
+            <button class="ak-tab active" data-lang="curl" onclick="mostrarEjemplo('curl')">cURL</button>
+            <button class="ak-tab" data-lang="js" onclick="mostrarEjemplo('js')">JavaScript</button>
+            <button class="ak-tab" data-lang="python" onclick="mostrarEjemplo('python')">Python</button>
+            <button class="ak-tab" data-lang="php" onclick="mostrarEjemplo('php')">PHP</button>
+          </div>
+          <div class="json-viewer-container"><pre><code id="doc-ejemplo"></code></pre></div>
+          <div class="apikey-acciones">
+            <button class="btn btn-secondary btn-sm" onclick="copiar(document.getElementById('doc-ejemplo').textContent, 'Ejemplo copiado')">Copiar ejemplo</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+  <script src="api-keys.js"></script>
+</body>
+</html>

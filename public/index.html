@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cuentas Contables Softland</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- TOP NAVIGATION & STATUS -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">Cuentas Contables Softland</h1>
+          <p class="brand-subtitle">Consulta de movimientos contables sincronizados en MySQL (db_central)</p>
+        </div>
+      </div>
+
+      <div class="connection-badges">
+        <div class="conn-pill" id="badge-mysql" title="Haga clic para probar conexión a MySQL Cloud">
+          <span class="status-dot"></span>
+          <div class="conn-text">
+            <span class="conn-label">MySQL db_central</span>
+            <span class="conn-detail" id="mysql-status-text">Verificando...</span>
+          </div>
+          <button class="btn-icon" onclick="loadEstado()" title="Reintentar prueba">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </button>
+        </div>
+
+        <div class="conn-pill" id="badge-sync" title="Última ejecución del extractor en el servidor Softland">
+          <span class="status-dot" id="sync-dot"></span>
+          <div class="conn-text">
+            <span class="conn-label">Última sincronización</span>
+            <span class="conn-detail" id="sync-status-text">Cargando...</span>
+          </div>
+          <button class="btn-icon" onclick="refrescarTodo()" title="Actualizar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="user-box">
+        <div class="user-info">
+          <span class="user-name" id="user-name">—</span>
+          <span class="user-role" id="user-role"></span>
+        </div>
+        <button class="btn btn-secondary btn-sm solo-admin" onclick="openUsuariosModal()" title="Administrar usuarios">Usuarios</button>
+        <a class="btn btn-secondary btn-sm solo-admin" href="/api-keys.html" title="Claves de API para otras aplicaciones">API Keys</a>
+        <button class="btn btn-ghost btn-sm" onclick="openPasswordModal()" title="Cambiar mi contraseña">Contraseña</button>
+        <button class="btn btn-ghost btn-sm" onclick="logout()" title="Cerrar sesión">Salir</button>
+      </div>
+    </header>
+
+    <!-- MAIN WORKSPACE -->
+    <main class="main-content">
+
+      <!-- HISTORIAL DE SINCRONIZACIONES (extractor Python en servidor Softland) -->
+      <section class="card automation-card">
+        <div class="card-header">
+          <div class="section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <h2>Sincronizaciones Softland → MySQL</h2>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary btn-sm" onclick="toggleSyncLog()">
+              <span id="btn-sync-log-text">Ver historial</span>
+            </button>
+          </div>
+        </div>
+        <p class="sync-info">Los datos se actualizan cuando se ejecuta <code>sincronizar_cuentas.bat</code> en el servidor Softland. Esta página consulta solo MySQL y se refresca sola cuando detecta una sincronización nueva.</p>
+        <div class="table-container" id="sync-log-panel" style="display: none;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Inicio</th>
+                <th>Colegio</th>
+                <th>Periodo</th>
+                <th>Estado</th>
+                <th class="text-right">Registros</th>
+                <th class="text-right">Debe ($)</th>
+                <th class="text-right">Duración</th>
+                <th>Detalle</th>
+              </tr>
+            </thead>
+            <tbody id="sync-log-body">
+              <tr><td colspan="8" class="empty-state">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- FILTROS Y ACCIONES MANUALES -->
+      <section class="card filter-card">
+        <div class="card-header">
+          <div class="section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            <h2>Consulta de Movimientos</h2>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary btn-sm" id="btn-toggle-cuentas" onclick="toggleCuentasPanel()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+              <span><span class="solo-admin">Gestionar </span>Cuentas (<strong id="active-cuentas-count">8</strong> activas)</span>
+            </button>
+          </div>
+        </div>
+
+        <form id="filter-form" onsubmit="handleConsultar(event)" class="filter-grid">
+          <div class="form-group">
+            <label for="select-empresa">Colegio</label>
+            <div class="select-wrapper">
+              <select id="select-empresa" name="empresa">
+                <option value="AMBAS" selected>Ambos colegios</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="input-ano">Año Contable</label>
+            <div class="select-wrapper">
+              <select id="input-ano" name="ano"></select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="select-mes">Mes</label>
+            <div class="select-wrapper">
+              <select id="select-mes" name="mes">
+                <option value="" selected>Todos los meses del año</option>
+                <option value="1">Enero (01)</option>
+                <option value="2">Febrero (02)</option>
+                <option value="3">Marzo (03)</option>
+                <option value="4">Abril (04)</option>
+                <option value="5">Mayo (05)</option>
+                <option value="6">Junio (06)</option>
+                <option value="7">Julio (07)</option>
+                <option value="8">Agosto (08)</option>
+                <option value="9">Septiembre (09)</option>
+                <option value="10">Octubre (10)</option>
+                <option value="11">Noviembre (11)</option>
+                <option value="12">Diciembre (12)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="filter-buttons">
+            <button type="submit" class="btn btn-primary" id="btn-consultar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <span>Consultar</span>
+            </button>
+
+          </div>
+        </form>
+
+        <!-- PANEL COLAPSABLE DE CUENTAS CONTABLES DINÁMICAS -->
+        <div class="cuentas-panel" id="cuentas-panel">
+          <div class="cuentas-panel-header">
+            <div>
+              <h3>Configuración Dinámica de Cuentas</h3>
+              <p>Las cuentas activas son las que el extractor trae desde Softland en cada sincronización y las que se muestran en la consulta. Los cambios aplican en la próxima ejecución del <code>.bat</code>.</p>
+            </div>
+            <div class="cuentas-panel-actions">
+              <button class="btn btn-ghost btn-sm solo-admin" onclick="setAllCuentas(true)">Activar Todas</button>
+              <button class="btn btn-ghost btn-sm solo-admin" onclick="setAllCuentas(false)">Desactivar Todas</button>
+              <button class="btn btn-secondary btn-sm solo-admin" onclick="openAddCuentaModal()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                <span>Añadir Cuenta</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="cuentas-chips-grid" id="cuentas-chips-container">
+            <!-- Renderizado dinámico desde app.js -->
+          </div>
+        </div>
+      </section>
+
+      <!-- KPI SUMMARY CARDS -->
+      <section class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-icon icon-blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-label">Total Movimientos</span>
+            <span class="kpi-value" id="kpi-total-registros">0</span>
+            <span class="kpi-sub" id="kpi-periodo-sub">Sin consulta ejecutada</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon icon-amber">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-label">Total MovDebe</span>
+            <span class="kpi-value" id="kpi-total-debe">$0</span>
+            <span class="kpi-sub">Cargos contables</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon icon-purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-label">Total MovHaber</span>
+            <span class="kpi-value" id="kpi-total-haber">$0</span>
+            <span class="kpi-sub">Abonos contables</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon icon-emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-label">Saldo Neto</span>
+            <span class="kpi-value" id="kpi-saldo-neto">$0</span>
+            <span class="kpi-sub">Debe - Haber</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- DATA TABLE AND CONTROLS -->
+      <section class="card table-card">
+        <div class="table-toolbar">
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="table-search" placeholder="Buscar en resultados (glosa, documento, servicio...)" oninput="filterTable()">
+          </div>
+
+          <div class="toolbar-actions">
+            <!-- Web Service URL Tooltip/Button -->
+            <button class="btn btn-secondary btn-sm" onclick="copyWebServiceUrl()" title="Copiar URL directa del Web Service JSON">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+              <span>Endpoint Web Service</span>
+            </button>
+
+            <button class="btn btn-secondary btn-sm" onclick="openJsonModal()" title="Ver la respuesta JSON generada">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+              <span>Ver JSON</span>
+            </button>
+
+            <button class="btn btn-ghost btn-sm" onclick="downloadJsonFile()" title="Descargar datos en archivo JSON">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span>Exportar</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table" id="data-table">
+            <thead>
+              <tr>
+                <th>Colegio</th>
+                <th>Servicio</th>
+                <th>PctCod</th>
+                <th>Periodo</th>
+                <th>Fecha</th>
+                <th>Cpb / Mov</th>
+                <th>Doc Ref</th>
+                <th>C.Costo</th>
+                <th class="text-right">Debe ($)</th>
+                <th class="text-right">Haber ($)</th>
+                <th>Glosa Contable</th>
+              </tr>
+            </thead>
+            <tbody id="table-body">
+              <tr>
+                <td colspan="11" class="empty-state">
+                  <div class="empty-state-content">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                    <p class="empty-title">Sin datos cargados aún</p>
+                    <p class="empty-sub">Selecciona los filtros y haz clic en <strong>"Consultar"</strong>.</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-footer">
+          <div class="footer-stats">
+            Mostrando <span id="showing-count">0</span> de <span id="total-count">0</span> registros
+          </div>
+          <div class="footer-note">
+            Fuente: MySQL db_central · tabla con_c_movimientos
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL: AÑADIR/EDITAR CUENTA -->
+  <div class="modal-backdrop" id="modal-cuenta">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Añadir Nueva Cuenta Contable</h3>
+        <button class="modal-close" onclick="closeAddCuentaModal()">&times;</button>
+      </div>
+      <form id="form-cuenta" onsubmit="handleSaveCuenta(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="modal-pctcod">Código de Cuenta (PctCod) *</label>
+            <input type="text" id="modal-pctcod" placeholder="Ej: 5-1-08-15" required pattern="^[0-9\-]+$">
+            <small class="form-hint">Formato típico de Softland: X-X-XX-XX</small>
+          </div>
+          <div class="form-group">
+            <label for="modal-servicio">Nombre o Servicio Descriptivo *</label>
+            <input type="text" id="modal-servicio" placeholder="Ej: Servicio de Enlace Dedicado" required>
+            <small class="form-hint">Nombre que se mostrará para esta cuenta</small>
+          </div>
+          <div class="form-group">
+            <label for="modal-categoria">Categoría</label>
+            <input type="text" id="modal-categoria" placeholder="Ej: Tecnología, Servicios Básicos, etc." value="General">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="closeAddCuentaModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar Cuenta</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: VER RESPUESTA JSON -->
+  <div class="modal-backdrop" id="modal-json">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div>
+          <h3>Respuesta JSON del Web Service</h3>
+          <p class="modal-sub" id="json-modal-url"></p>
+        </div>
+        <button class="modal-close" onclick="closeJsonModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="json-viewer-container">
+          <pre><code id="json-viewer-code">// Cargando JSON...</code></pre>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="copyJsonText()">Copiar JSON</button>
+        <button class="btn btn-ghost" onclick="closeJsonModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ADMINISTRAR USUARIOS (superadmin) -->
+  <div class="modal-backdrop" id="modal-usuarios">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div>
+          <h3>Usuarios</h3>
+          <p class="modal-sub"><strong>superadmin</strong>: consulta y administra cuentas y usuarios · <strong>viewer</strong>: solo consulta</p>
+        </div>
+        <button class="modal-close" onclick="closeUsuariosModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form class="usuarios-form" id="form-usuario" onsubmit="handleCrearUsuario(event)">
+          <div class="form-group">
+            <label for="nu-usuario">Usuario</label>
+            <input type="text" id="nu-usuario" required pattern="[A-Za-z0-9._-]{3,60}" placeholder="ej: jperez" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label for="nu-nombre">Nombre</label>
+            <input type="text" id="nu-nombre" required placeholder="Nombre completo" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label for="nu-password">Contraseña</label>
+            <input type="password" id="nu-password" required minlength="8" autocomplete="new-password">
+          </div>
+          <div class="form-group">
+            <label for="nu-rol">Rol</label>
+            <select id="nu-rol">
+              <option value="viewer" selected>viewer</option>
+              <option value="superadmin">superadmin</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm">+ Crear usuario</button>
+        </form>
+        <div class="table-container">
+          <table class="data-table usuarios-table">
+            <thead>
+              <tr>
+                <th>Usuario</th>
+                <th>Nombre</th>
+                <th>Rol</th>
+                <th>Estado</th>
+                <th>Último ingreso</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="usuarios-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CAMBIAR MI CONTRASEÑA -->
+  <div class="modal-backdrop" id="modal-password">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Cambiar mi contraseña</h3>
+        <button class="modal-close" onclick="closePasswordModal()">&times;</button>
+      </div>
+      <form id="form-password" onsubmit="handleCambiarPassword(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="pw-actual">Contraseña actual</label>
+            <input type="password" id="pw-actual" required autocomplete="current-password">
+          </div>
+          <div class="form-group">
+            <label for="pw-nueva">Nueva contraseña (mín. 8 caracteres)</label>
+            <input type="password" id="pw-nueva" required minlength="8" autocomplete="new-password">
+          </div>
+          <div class="form-group">
+            <label for="pw-confirmar">Repetir nueva contraseña</label>
+            <input type="password" id="pw-confirmar" required minlength="8" autocomplete="new-password">
+          </div>
+          <small class="form-hint">Al cambiarla se cierran tus otras sesiones abiertas.</small>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="closePasswordModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATIONS -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

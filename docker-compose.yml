@@ -1,0 +1,39 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cuentas_contables_web:latest
+    container_name: cuentas_contables_web
+    restart: always
+    # Sin "ports": nginx-proxy enruta el tráfico por la red interna red_produccion
+    environment:
+      - PORT=8000
+      # --- MySQL db_central ---
+      - MYSQL_HOST=${MYSQL_HOST}
+      - MYSQL_PORT=${MYSQL_PORT:-3306}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-db_central}
+      # --- Firma de sesiones (obligatoria; si cambia, todos deben volver a ingresar) ---
+      - SESSION_SECRET=${SESSION_SECRET}
+      # --- Modo heredado (consulta directa a Softland): siempre apagado en la nube ---
+      - MODO_LEGACY_SOFTLAND=false
+      # --- URL pública (se usa en el JSON de entrega de las API keys) ---
+      - PUBLIC_URL=${PUBLIC_URL}
+      # --- nginx-proxy + Let's Encrypt ---
+      - VIRTUAL_HOST=${VIRTUAL_HOST}
+      - VIRTUAL_PORT=8000
+      - LETSENCRYPT_HOST=${LETSENCRYPT_HOST}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - red_produccion
+
+networks:
+  red_produccion:
+    external: true

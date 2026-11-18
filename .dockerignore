@@ -1,0 +1,25 @@
+# Secretos: se pasan por variables de entorno desde docker-compose
+.env
+.env.*
+
+# Dependencias locales (se instalan dentro de la imagen)
+node_modules
+npm-debug.log*
+
+# Documentación
+*.md
+
+# Datos del modo heredado (desactivado en producción)
+data
+
+# Docker / editor / SO
+Dockerfile
+docker-compose*.yml
+.dockerignore
+.git
+.gitignore
+.vscode
+.idea
+*.log
+Thumbs.db
+.DS_Store
